@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dodge Game v2</title>
+<style>
+  body {
+    margin: 0;
+    background: #0e0e0e;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    color: white;
+    font-family: Arial, sans-serif;
+    user-select: none;
+  }
+  canvas {
+    background: #121212;
+    border-radius: 12px;
+    border: 2px solid #333;
+    touch-action: none;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="game" width="400" height="600"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let player = {
+  x: 180,
+  y: 540,
+  size: 40,
+  velocity: 0
+};
+
+let blocks = [];
+let bonuses = [];
+let gameOver = false;
+let score = 0;
+let highScore = localStorage.getItem("highScore") || 0;
+
+let speed = 3;
+let spawnRate = 800;
+let slowMode = false;
+
+const keys = {};
+document.addEventListener("keydown", e => keys[e.key] = true);
+document.addEventListener("keyup", e => keys[e.key] = false);
+
+// 📱 touch
+canvas.addEventListener("touchmove", e => {
+  const rect = canvas.getBoundingClientRect();
+  player.x = e.touches[0].clientX - rect.left - player.size / 2;
+});
+
+function spawnBlock() {
+  blocks.push({
+    x: Math.random() * (canvas.width - 40),
+    y: -40,
+    size: 40
+  });
+}
+
+function spawnBonus() {
+  bonuses.push({
+    x: Math.random() * (canvas.width - 25),
+    y: -30,
+    size: 25
+  });
+}
+
+setInterval(() => {
+  if (!gameOver) spawnBlock();
+}, spawnRate);
+
+setInterval(() => {
+  if (!gameOver) spawnBonus();
+}, 5000);
+
+function update() {
+  if (gameOver) return;
+
+  // плавное движение
+  if (keys["a"] || keys["ArrowLeft"]) player.velocity -= 0.6;
+  if (keys["d"] || keys["ArrowRight"]) player.velocity += 0.6;
+
+  player.velocity *= 0.9;
+  player.x += player.velocity;
+
+  player.x = Math.max(0, Math.min(canvas.width - player.size, player.x));
+
+  blocks.forEach(b => b.y += slowMode ? speed * 0.4 : speed);
+  bonuses.forEach(b => b.y += 2);
+
+  // столкновения
+  blocks.forEach(b => {
+    if (
+      player.x < b.x + b.size &&
+      player.x + player.size > b.x &&
+      player.y < b.y + b.size &&
+      player.y + player.size > b.y
+    ) {
+      gameOver = true;
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem("highScore", highScore);
+      }
+    }
+  });
+
+  bonuses.forEach((b, i) => {
+    if (
+      player.x < b.x + b.size &&
+      player.x + player.size > b.x &&
+      player.y < b.y + b.size &&
+      player.y + player.size > b.y
+    ) {
+      slowMode = true;
+      setTimeout(() => slowMode = false, 3000);
+      bonuses.splice(i, 1);
+    }
+  });
+
+  blocks = blocks.filter(b => b.y < canvas.height + 50);
+  bonuses = bonuses.filter(b => b.y < canvas.height + 50);
+
+  score++;
+  speed += 0.002;
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // player
+  ctx.fillStyle = "#4CAF50";
+  ctx.fillRect(player.x, player.y, player.size, player.size);
+
+  // blocks
+  ctx.fillStyle = "#e53935";
+  blocks.forEach(b => ctx.fillRect(b.x, b.y, b.size, b.size));
+
+  // bonuses
+  ctx.fillStyle = "#9c27b0";
+  bonuses.forEach(b => ctx.fillRect(b.x, b.y, b.size, b.size));
+
+  ctx.fillStyle = "white";
+  ctx.font = "18px Arial";
+  ctx.fillText("Score: " + score, 10, 25);
+  ctx.fillText("Best: " + highScore, 10, 50);
+
+  if (slowMode) {
+    ctx.fillStyle = "#9c27b0";
+    ctx.fillText("SLOW MODE", 260, 25);
+  }
+
+  if (gameOver) {
+    ctx.fillStyle = "white";
+    ctx.font = "32px Arial";
+    ctx.fillText("GAME OVER", 90, 280);
+    ctx.font = "18px Arial";
+    ctx.fillText("Refresh to restart", 120, 320);
+  }
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
+</html>
